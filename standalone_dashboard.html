@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Urban Flood Nowcasting System - Coimbatore Geospatial ML Dashboard</title>
+  <meta name="description" content="AI-driven urban flood risk nowcasting and 7-day hydrological forecasting system with Coimbatore geospatial risk map.">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              500: '#10b981',
+              600: '#059669',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- html2pdf.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #080d1a;
+      color: #f1f5f9;
+    }
+    .font-mono-tabular {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(51, 65, 85, 0.7);
+    }
+    .glass-input {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(71, 85, 105, 0.6);
+    }
+    .glass-input:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 1px #38bdf8;
+      outline: none;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#070b14] text-slate-100 flex flex-col selection:bg-cyan-500/30">
+
+  <!-- Top Navigation Bar -->
+  <header class="border-b border-slate-800 bg-[#0a101f]/90 sticky top-0 z-40 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/50 flex items-center justify-center text-cyan-400 font-bold">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        <div>
+          <span class="text-base font-bold tracking-tight text-white">HydroCast AI</span>
+          <span class="text-xs text-slate-400 hidden sm:inline ml-2 border-l border-slate-700 pl-2">Coimbatore Flood Nowcasting</span>
+        </div>
+      </div>
+
+      <nav class="hidden md:flex items-center gap-6 text-xs uppercase tracking-wider text-slate-400 font-medium">
+        <a href="#input-form" class="hover:text-cyan-400 transition-colors">Parameters</a>
+        <a href="#coimbatore-section" class="text-cyan-400 font-bold hover:text-cyan-300 transition-colors">Coimbatore Map</a>
+        <a href="#metrics" class="hover:text-cyan-400 transition-colors">Risk Metrics</a>
+        <a href="#charts" class="hover:text-cyan-400 transition-colors">Telemetry Charts</a>
+        <a href="#table" class="hover:text-cyan-400 transition-colors">7-Day Table</a>
+      </nav>
+
+      <div class="flex items-center gap-3">
+        <button id="btn-export-pdf" onclick="exportToPDF()" class="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold text-white bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 transition-colors whitespace-nowrap shadow-sm">
+          <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          Export PDF
+        </button>
+
+        <button onclick="openEmergencyModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white bg-rose-600 hover:bg-rose-500 rounded-lg shadow-md shadow-rose-600/30 transition-all">
+          <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
+          <span>Alert Authorities</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main id="dashboard-content" class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    
+    <!-- Active Status Banner -->
+    <div id="status-banner" class="rounded-xl border border-cyan-500/30 bg-cyan-950/20 px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center justify-center w-6 h-6 rounded-md bg-cyan-500/20 text-cyan-400 font-mono">ML</span>
+        <span class="text-slate-300">
+          <strong class="text-white" id="banner-mode-title">Coimbatore Geospatial Hydrological Engine Active</strong>
+          <span class="text-slate-400 mx-1.5">·</span>
+          <span id="banner-mode-desc">25 Wards & underpasses monitored in real time.</span>
+        </span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-slate-400 font-mono-tabular" id="banner-timestamp">Updated just now</span>
+      </div>
+    </div>
+
+    <!-- Parameter Input Form -->
+    <section id="input-form" class="glass-card rounded-2xl p-6 shadow-xl">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-800">
+        <div>
+          <h2 class="text-lg font-bold text-white tracking-tight">Environmental & Geographic Parameters</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Configure precipitation intensity, soil moisture, and drainage density for Coimbatore city.</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs text-slate-400 mr-1">Presets:</span>
+          <button type="button" onclick="loadScenario('coimbatore_monsoon')" class="px-2.5 py-1 text-xs rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/30 transition-colors font-bold">
+            Coimbatore Monsoon Surge
+          </button>
+          <button type="button" onclick="loadScenario('flash_monsoon')" class="px-2.5 py-1 text-xs rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 hover:bg-rose-500/20 transition-colors">
+            Flash Cloudburst
+          </button>
+          <button type="button" onclick="loadScenario('moderate_suburb')" class="px-2.5 py-1 text-xs rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-colors">
+            Moderate Rain
+          </button>
+          <button type="button" onclick="loadScenario('dry_stable')" class="px-2.5 py-1 text-xs rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 transition-colors">
+            Dry Baseline
+          </button>
+        </div>
+      </div>
+
+      <form id="prediction-form" onsubmit="handleFormSubmit(event)" class="mt-6 space-y-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div class="lg:col-span-2 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-semibold text-slate-300">Monitored Location / Catchment Basin</label>
+              <span class="text-[10px] text-cyan-400 font-mono">OSM + Overpass + Open-Meteo</span>
+            </div>
+            <div class="flex gap-2">
+              <input type="text" id="input-location" value="Coimbatore City Basin (Lanka Corner & Ukkadam)" required
+                placeholder="Enter ANY city/town in India (e.g. Warangal, Guntakal, Salem, Patna, Kochi)..."
+                onkeydown="if(event.key === 'Enter'){ event.preventDefault(); discoverCityHotspots(this.value); }"
+                class="w-full px-3.5 py-2 glass-input rounded-lg text-sm text-white placeholder-slate-500">
+              <button type="button" id="btn-discover" onclick="discoverCityHotspots(document.getElementById('input-location').value)"
+                class="px-4 py-2 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-lg shadow-cyan-500/20 border border-cyan-400/40 cursor-pointer whitespace-nowrap">
+                <svg class="w-3.5 h-3.5 text-cyan-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 4a6 6 0 100 12 6 6 0 000-12zm0 4a2 2 0 100 4 2 2 0 000-4z"/></svg>
+                <span>Discover Hotspots</span>
+              </button>
+            </div>
+            <!-- Quick Indian City Chips -->
+            <div class="flex items-center gap-1.5 flex-wrap pt-1">
+              <span class="text-[11px] text-slate-400 font-medium mr-1">Query Cities:</span>
+              <button type="button" onclick="selectQuickCity('Nagapattinam, Tamil Nadu')" class="px-2 py-0.5 rounded text-[11px] font-mono bg-cyan-500/20 border border-cyan-400 text-cyan-300">Nagapattinam</button>
+              <button type="button" onclick="selectQuickCity('Cuddalore, Tamil Nadu')" class="px-2 py-0.5 rounded text-[11px] font-mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-white">Cuddalore</button>
+              <button type="button" onclick="selectQuickCity('Warangal, Telangana')" class="px-2 py-0.5 rounded text-[11px] font-mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-white">Warangal</button>
+              <button type="button" onclick="selectQuickCity('Ranchi, Jharkhand')" class="px-2 py-0.5 rounded text-[11px] font-mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-white">Ranchi</button>
+              <button type="button" onclick="selectQuickCity('Kochi, Kerala')" class="px-2 py-0.5 rounded text-[11px] font-mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-white">Kochi</button>
+              <button type="button" onclick="selectQuickCity('Salem, Tamil Nadu')" class="px-2 py-0.5 rounded text-[11px] font-mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-white">Salem</button>
+              <button type="button" onclick="selectQuickCity('Patna, Bihar')" class="px-2 py-0.5 rounded text-[11px] font-mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-white">Patna</button>
+              <button type="button" onclick="selectQuickCity('Coimbatore, Tamil Nadu')" class="px-2 py-0.5 rounded text-[11px] font-mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-white">Coimbatore</button>
+              <button type="button" onclick="selectQuickCity('Chennai, Tamil Nadu')" class="px-2 py-0.5 rounded text-[11px] font-mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-white">Chennai</button>
+              <button type="button" onclick="selectQuickCity('Hyderabad, Telangana')" class="px-2 py-0.5 rounded text-[11px] font-mono bg-slate-900 border border-slate-700 text-slate-300 hover:text-white">Hyderabad</button>
+            </div>
+            <!-- Dynamic Discovery Progress / Weather Notice -->
+            <div id="discovery-status-box" class="hidden p-2 rounded-lg text-xs"></div>
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-xs font-semibold text-slate-300">Rainfall (24h)</label>
+              <span id="val-rainfall" class="text-xs font-mono-tabular text-cyan-400 font-bold">105 mm</span>
+            </div>
+            <input type="range" id="input-rainfall" min="0" max="300" step="1" value="105"
+              oninput="document.getElementById('val-rainfall').textContent = this.value + ' mm'; runNowcasting();"
+              class="w-full accent-cyan-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-xs font-semibold text-slate-300">Temperature</label>
+              <span id="val-temp" class="text-xs font-mono-tabular text-cyan-400 font-bold">26 °C</span>
+            </div>
+            <input type="range" id="input-temp" min="-10" max="45" step="0.5" value="26"
+              oninput="document.getElementById('val-temp').textContent = this.value + ' °C'; runNowcasting();"
+              class="w-full accent-cyan-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-xs font-semibold text-slate-300">Relative Humidity</label>
+              <span id="val-humidity" class="text-xs font-mono-tabular text-cyan-400 font-bold">91 %</span>
+            </div>
+            <input type="range" id="input-humidity" min="10" max="100" step="1" value="91"
+              oninput="document.getElementById('val-humidity').textContent = this.value + ' %'; runNowcasting();"
+              class="w-full accent-cyan-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-xs font-semibold text-slate-300">Barometric Pressure</label>
+              <span id="val-pressure" class="text-xs font-mono-tabular text-cyan-400 font-bold">994 hPa</span>
+            </div>
+            <input type="range" id="input-pressure" min="950" max="1040" step="1" value="994"
+              oninput="document.getElementById('val-pressure').textContent = this.value + ' hPa'; runNowcasting();"
+              class="w-full accent-cyan-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-xs font-semibold text-slate-300">Soil Moisture Saturation</label>
+              <span id="val-soil" class="text-xs font-mono-tabular text-cyan-400 font-bold">88 %</span>
+            </div>
+            <input type="range" id="input-soil" min="0" max="100" step="1" value="88"
+              oninput="document.getElementById('val-soil').textContent = this.value + ' %'; runNowcasting();"
+              class="w-full accent-cyan-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-xs font-semibold text-slate-300">Drainage Capacity (1-10)</label>
+              <span id="val-drainage" class="text-xs font-mono-tabular text-cyan-400 font-bold">3.5 / 10</span>
+            </div>
+            <input type="range" id="input-drainage" min="1" max="10" step="0.5" value="3.5"
+              oninput="document.getElementById('val-drainage').textContent = parseFloat(this.value).toFixed(1) + ' / 10'; runNowcasting();"
+              class="w-full accent-cyan-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+          </div>
+        </div>
+
+        <div class="pt-4 flex items-center justify-end gap-4 border-t border-slate-800">
+          <button type="submit" id="btn-predict"
+            class="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2 cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+            Compute Flood Nowcast
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- SECTION: COIMBATORE GEOSPATIAL MAP & TOP 10 PRIORITY HOTSPOTS -->
+    <section id="coimbatore-section" class="glass-card rounded-2xl p-6 shadow-2xl border border-cyan-500/25 space-y-6">
+      
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-slate-800">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+              <span id="badge-city-name">Coimbatore</span> Geospatial Telemetry
+            </span>
+            <span id="badge-microzones" class="text-xs text-slate-400 font-mono-tabular">25 Urban Micro-Zones Discovered</span>
+          </div>
+          <h3 class="text-lg font-bold text-white mt-1"><span id="header-city-name">Coimbatore</span> Flood Inundation Grid & Hotspots</h3>
+          <p id="desc-city-info" class="text-xs text-slate-400 mt-0.5">
+            Universal OpenStreetMap Overpass & Open-Meteo elevation telemetry. Red blocks = High risk (&gt;75), Yellow = Moderate (40-75), Green = Safe (&lt;40). Click any block to view depth and time-to-flood.
+          </p>
+        </div>
+
+        <!-- Primary Action Button: SEND ALERTS TO AUTHORITIES -->
+        <div>
+          <button type="button" onclick="openEmergencyModal()" class="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-xl shadow-rose-600/30 border border-rose-400/40 flex items-center gap-2 transition-all cursor-pointer">
+            <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            <span>Send Alerts to Authorities</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Split Layout: Left Grid Map, Right Priority List -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        <!-- Left: Interactive Coimbatore Grid (7 cols) -->
+        <div class="lg:col-span-7 space-y-4">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-semibold text-slate-200">Interactive Ward Grid Map</span>
+            <div class="flex items-center gap-3 text-[11px] font-mono-tabular">
+              <span class="flex items-center gap-1 text-rose-300"><span class="w-2.5 h-2.5 rounded-sm bg-rose-500"></span> High (&gt;75)</span>
+              <span class="flex items-center gap-1 text-amber-300"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500"></span> Moderate (40-75)</span>
+              <span class="flex items-center gap-1 text-emerald-300"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span> Safe (&lt;40)</span>
+            </div>
+          </div>
+
+          <div class="text-center text-[10px] font-mono uppercase tracking-widest text-slate-500">
+            ▲ North (Thudiyalur / Saravanampatti)
+          </div>
+
+          <!-- 5x5 Grid Container -->
+          <div class="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 shadow-inner">
+            <div id="coimbatore-grid-container" class="grid grid-cols-5 gap-2 sm:gap-2.5">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-slate-500 px-2">
+            <span>◄ West (Kovaipudur)</span>
+            <span>▼ South (Ukkadam / Podanur)</span>
+            <span>East (Singanallur) ►</span>
+          </div>
+
+          <!-- Clicked Block HUD Details -->
+          <div id="ward-detail-hud" class="p-4 rounded-xl border border-cyan-500/40 bg-gradient-to-r from-slate-900/90 via-[#0a1224] to-slate-900/90 shadow-xl space-y-3">
+            <!-- Dynamic ward details -->
+          </div>
+        </div>
+
+        <!-- Right: Top 10 Priority Locations List (5 cols) -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="font-semibold text-slate-200 text-xs">Top 10 Flood-Prone Priority Hotspots</span>
+            <span class="text-[11px] text-rose-400 font-mono-tabular">Ranked by Surcharge</span>
+          </div>
+
+          <div id="priority-locations-container" class="space-y-2.5 max-h-[580px] overflow-y-auto pr-1">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- Metrics Section -->
+    <section id="metrics" class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div class="lg:col-span-4 glass-card rounded-2xl p-6 border-l-4 border-l-rose-500 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="flex items-center gap-5">
+          <div id="risk-score-circle" class="w-20 h-20 rounded-full border-4 border-rose-500 flex flex-col items-center justify-center bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.3)]">
+            <span id="metric-max-score" class="text-2xl font-bold font-mono-tabular text-rose-400">88.4</span>
+            <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">/ 100</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span id="metric-risk-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                Critical Inundation Risk
+              </span>
+              <span class="text-xs text-slate-400 font-mono-tabular" id="metric-peak-day">Peak on Day 2</span>
+            </div>
+            <h3 class="text-xl font-bold text-white mt-1">High Runoff Exceeding Municipal Stormwater Capacity</h3>
+            <p class="text-xs text-slate-400 max-w-2xl mt-0.5">Hydrological simulation indicates impervious urban runoff will overwhelm main culvert networks within 36 hours.</p>
+          </div>
+        </div>
+        <div class="text-right">
+          <span class="text-xs text-slate-400 block">Civil Response Level</span>
+          <span id="metric-civil-level" class="text-sm font-bold text-rose-400 font-mono">PHASE III: ACTIVE RED ALERT</span>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-xl p-5 border border-slate-800">
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Peak Risk Index</span>
+        <div class="mt-4 flex items-baseline gap-2">
+          <span id="card-max-risk" class="text-3xl font-bold font-mono-tabular text-rose-400">88.4</span>
+          <span class="text-xs text-slate-400 font-mono">pts</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Maximum projected risk score across the 7-day forecast cycle.</p>
+      </div>
+
+      <div class="glass-card rounded-xl p-5 border border-slate-800">
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">7-Day Avg Rainfall</span>
+        <div class="mt-4 flex items-baseline gap-2">
+          <span id="card-avg-rain" class="text-3xl font-bold font-mono-tabular text-cyan-400">46.2</span>
+          <span class="text-xs text-slate-400 font-mono">mm/day</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Cumulative precipitation of <span id="card-total-rain" class="text-slate-200 font-mono-tabular">323.4 mm</span>.</p>
+      </div>
+
+      <div class="glass-card rounded-xl p-5 border border-slate-800">
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Critical Risk Days</span>
+        <div class="mt-4 flex items-baseline gap-2">
+          <span id="card-crit-days" class="text-3xl font-bold font-mono-tabular text-rose-400">2</span>
+          <span class="text-xs text-slate-400 font-mono">days</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Days with risk scores exceeding 75 (Extreme danger).</p>
+      </div>
+
+      <div class="glass-card rounded-xl p-5 border border-slate-800">
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">High Risk Days</span>
+        <div class="mt-4 flex items-baseline gap-2">
+          <span id="card-high-days" class="text-3xl font-bold font-mono-tabular text-amber-400">2</span>
+          <span class="text-xs text-slate-400 font-mono">days</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Days requiring active water management and road diversions.</p>
+      </div>
+    </section>
+
+    <!-- Timeline -->
+    <section class="glass-card rounded-2xl p-6">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h3 class="text-base font-bold text-white tracking-tight">7-Day Hydrological Timeline</h3>
+          <p class="text-xs text-slate-400">Sequential risk progression across the 168-hour forecast horizon.</p>
+        </div>
+      </div>
+      <div id="timeline-container" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3"></div>
+    </section>
+
+    <!-- Visualizations -->
+    <section id="charts" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="glass-card rounded-2xl p-5 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-sm font-bold text-white">Daily Precipitation Forecast</h4>
+          <span class="text-xs font-mono text-cyan-400">mm / 24h</span>
+        </div>
+        <div class="h-64 w-full"><canvas id="chart-rainfall"></canvas></div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-5 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-sm font-bold text-white">Flood Risk Index Progression</h4>
+          <span class="text-xs font-mono text-rose-400">Score 0-100</span>
+        </div>
+        <div class="h-64 w-full"><canvas id="chart-risk"></canvas></div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-5 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-sm font-bold text-white">Atmospheric Convergence Trends</h4>
+          <span class="text-xs font-mono text-amber-400">°C vs %</span>
+        </div>
+        <div class="h-64 w-full"><canvas id="chart-weather"></canvas></div>
+      </div>
+    </section>
+
+    <!-- 7-Day Forecast Table -->
+    <section id="table" class="glass-card rounded-2xl p-6 overflow-hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="text-base font-bold text-white tracking-tight">7-Day Hydrometeorological Forecast Matrix</h3>
+          <p class="text-xs text-slate-400">Tabular projection of all environmental coefficients.</p>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead>
+            <tr class="border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
+              <th class="py-3 px-3">Horizon</th>
+              <th class="py-3 px-3">Date</th>
+              <th class="py-3 px-3">Rainfall</th>
+              <th class="py-3 px-3">Temp</th>
+              <th class="py-3 px-3">Humidity</th>
+              <th class="py-3 px-3">Soil Moisture</th>
+              <th class="py-3 px-3">Risk Score</th>
+              <th class="py-3 px-3">Severity Level</th>
+              <th class="py-3 px-3">Dominant Factor</th>
+            </tr>
+          </thead>
+          <tbody id="forecast-table-body" class="divide-y divide-slate-800 font-mono-tabular"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- EMERGENCY AUTHORITIES DISPATCH MODAL -->
+  <div id="emergency-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden items-center justify-center p-4 overflow-y-auto">
+    <div class="glass-card max-w-3xl w-full rounded-2xl p-6 border border-rose-500/50 shadow-2xl space-y-4 my-8">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div>
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+            <span>Emergency Authorities Alert Broadcast Center</span>
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">Automated priority notification dispatched to Coimbatore emergency departments.</p>
+        </div>
+        <button onclick="closeEmergencyModal()" class="text-slate-400 hover:text-white p-1 text-lg">&times;</button>
+      </div>
+
+      <div id="broadcast-alert-banner" class="p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-500/40 text-emerald-200 text-xs flex items-center justify-between">
+        <div>
+          <strong class="text-white block font-semibold">Emergency Broadcast Successfully Transmitted</strong>
+          <span class="text-[11px] opacity-80" id="broadcast-time-label">Dispatched at 07:22:15 IST via TN-DISASTER-NET-VHF #402</span>
+        </div>
+        <button onclick="reBroadcast()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs">
+          Re-Broadcast
+        </button>
+      </div>
+
+      <!-- 4 Recipient Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
+        <!-- 1. Fire Dept -->
+        <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+          <div class="flex justify-between items-center border-b border-slate-800 pb-1.5">
+            <strong class="text-white text-xs font-bold">1. Fire Dept</strong>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300">CRITICAL</span>
+          </div>
+          <p><span class="text-slate-400">Location:</span> <strong class="text-white">Lanka Corner Railway Subway (B84) & Avinashi Rd (B98)</strong></p>
+          <p><span class="text-slate-400">Risk Level:</span> <strong class="text-rose-400">Critical (89/100) - 74 cm water depth</strong></p>
+          <p><span class="text-slate-400">Time Estimate:</span> <strong class="text-amber-400">Inundation in 16 min</strong></p>
+          <p class="text-cyan-300 bg-black/40 p-2 rounded border border-slate-800 text-[11px]"><strong class="text-slate-400 block text-[10px]">Action Needed:</strong> Mobilize high-capacity 150HP suction pump tenders. Barricade subway access ramps.</p>
+        </div>
+
+        <!-- 2. Traffic Police -->
+        <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+          <div class="flex justify-between items-center border-b border-slate-800 pb-1.5">
+            <strong class="text-white text-xs font-bold">2. Traffic Police</strong>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300">DIVERSION</span>
+          </div>
+          <p><span class="text-slate-400">Location:</span> <strong class="text-white">Avinashi Road Flyover Underpass & Trichy Road</strong></p>
+          <p><span class="text-slate-400">Risk Level:</span> <strong class="text-rose-400">Severe Surcharge (82/100)</strong></p>
+          <p><span class="text-slate-400">Time Estimate:</span> <strong class="text-amber-400">Impassable in 18 min</strong></p>
+          <p class="text-cyan-300 bg-black/40 p-2 rounded border border-slate-800 text-[11px]"><strong class="text-slate-400 block text-[10px]">Action Needed:</strong> Place barricades; divert commuter traffic via Race Course circular and Brookefields arterial ring.</p>
+        </div>
+
+        <!-- 3. Emergency Teams -->
+        <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+          <div class="flex justify-between items-center border-b border-slate-800 pb-1.5">
+            <strong class="text-white text-xs font-bold">3. Emergency Teams (NDRF/SDRF)</strong>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300">RESCUE READY</span>
+          </div>
+          <p><span class="text-slate-400">Location:</span> <strong class="text-white">Ukkadam Periyakulam Spillway (B12) & Singanallur</strong></p>
+          <p><span class="text-slate-400">Risk Level:</span> <strong class="text-rose-400">Critical Lake Surge (85/100)</strong></p>
+          <p><span class="text-slate-400">Time Estimate:</span> <strong class="text-amber-400">Surge in 24 min</strong></p>
+          <p class="text-cyan-300 bg-black/40 p-2 rounded border border-slate-800 text-[11px]"><strong class="text-slate-400 block text-[10px]">Action Needed:</strong> Stage inflatable rafts. Pre-alert low-lying households along Periyakulam bund for relocation.</p>
+        </div>
+
+        <!-- 4. Pump Operators -->
+        <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+          <div class="flex justify-between items-center border-b border-slate-800 pb-1.5">
+            <strong class="text-white text-xs font-bold">4. Pump Operators (CCMC)</strong>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300">DEWATERING</span>
+          </div>
+          <p><span class="text-slate-400">Location:</span> <strong class="text-white">Gandhipuram Subway (B55), Ramanathapuram & Sungam</strong></p>
+          <p><span class="text-slate-400">Risk Level:</span> <strong class="text-amber-400">High Drainage Surcharge (79/100)</strong></p>
+          <p><span class="text-slate-400">Time Estimate:</span> <strong class="text-amber-400">Backlog in 20 min</strong></p>
+          <p class="text-cyan-300 bg-black/40 p-2 rounded border border-slate-800 text-[11px]"><strong class="text-slate-400 block text-[10px]">Action Needed:</strong> Fire up stationary diesel pumps at 100% capacity. Clear debris and plastic from stormwater outfalls.</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-3 border-t border-slate-800">
+        <button onclick="closeEmergencyModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-semibold text-xs">
+          Close Dispatch Center
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Coimbatore 25 authentic sectors
+    const COIMBATORE_WARDS = [
+      { id: "B14", code: "B-14", name: "Thudiyalur North Gateway", shortName: "Thudiyalur", subArea: "Mettupalayam Rd Highway", zone: "North", elevationMsl: 432, baseDrainage: 0.65, impervious: 0.68, riskMult: 0.82, underpass: false },
+      { id: "B22", code: "B-22", name: "Saravanampatti IT Corridor", shortName: "Saravanampatti", subArea: "Tech Park / Sathy Rd", zone: "North", elevationMsl: 428, baseDrainage: 0.55, impervious: 0.82, riskMult: 1.05, underpass: false },
+      { id: "B35", code: "B-35", name: "Ganapathy Textool Underpass", shortName: "Ganapathy", subArea: "Textool Railway Low Bridge", zone: "North", elevationMsl: 416, baseDrainage: 0.25, impervious: 0.88, riskMult: 1.35, underpass: true },
+      { id: "B48", code: "B-48", name: "Avarampalayam Sathy Road Subway", shortName: "Avarampalayam", subArea: "Sathy Rd Railway Subway", zone: "North", elevationMsl: 415, baseDrainage: 0.28, impervious: 0.86, riskMult: 1.28, underpass: true },
+      { id: "B19", code: "B-19", name: "Peelamedu Aerodrome Lowlands", shortName: "Peelamedu North", subArea: "Airport Catchment Basin", zone: "East", elevationMsl: 420, baseDrainage: 0.45, impervious: 0.78, riskMult: 1.12, underpass: false },
+
+      { id: "B52", code: "B-52", name: "Saibaba Colony Mettupalayam Junction", shortName: "Saibaba Colony", subArea: "NSR Road Junction", zone: "Central", elevationMsl: 425, baseDrainage: 0.58, impervious: 0.84, riskMult: 0.95, underpass: false },
+      { id: "B55", code: "B-55", name: "Gandhipuram Cross Cut Subway", shortName: "Gandhipuram", subArea: "Central Bus Stand & Shopping Hub", zone: "Central", elevationMsl: 418, baseDrainage: 0.32, impervious: 0.94, riskMult: 1.38, underpass: true },
+      { id: "B98", code: "B-98", name: "Avinashi Road Flyover Underpass", shortName: "Avinashi Rd Underpass", subArea: "Collectorate / Anna Silai Subway", zone: "Central", elevationMsl: 412, baseDrainage: 0.18, impervious: 0.95, riskMult: 1.55, underpass: true },
+      { id: "B67", code: "B-67", name: "Hospital Road & Medical College", shortName: "Hospital Road", subArea: "CMCH Emergency Arterial Corridor", zone: "Central", elevationMsl: 417, baseDrainage: 0.35, impervious: 0.91, riskMult: 1.32, underpass: true },
+      { id: "B71", code: "B-71", name: "Hopes College Peelamedu Junction", shortName: "Hopes College", subArea: "Avinashi Road Eastern Spine", zone: "East", elevationMsl: 422, baseDrainage: 0.48, impervious: 0.86, riskMult: 1.15, underpass: false },
+
+      { id: "B31", code: "B-31", name: "RS Puram West Basin", shortName: "RS Puram", subArea: "DB Road Commercial Drainage", zone: "West", elevationMsl: 430, baseDrainage: 0.62, impervious: 0.85, riskMult: 0.88, underpass: false },
+      { id: "B63", code: "B-63", name: "Town Hall Big Bazaar Street", shortName: "Town Hall", subArea: "Historic Commercial Old Town", zone: "Central", elevationMsl: 414, baseDrainage: 0.36, impervious: 0.96, riskMult: 1.25, underpass: false },
+      { id: "B84", code: "B-84", name: "Lanka Corner Railway Subway", shortName: "Lanka Corner", subArea: "Railway Junction / State Bank Road", zone: "Central", elevationMsl: 408, baseDrainage: 0.12, impervious: 0.98, riskMult: 1.72, underpass: true },
+      { id: "B29", code: "B-29", name: "Race Course Circular Road", shortName: "Race Course", subArea: "Thomas Park & High Infiltration Belt", zone: "Central", elevationMsl: 426, baseDrainage: 0.72, impervious: 0.60, riskMult: 0.72, underpass: false },
+      { id: "B73", code: "B-73", name: "Ramanathapuram Canal Junction", shortName: "Ramanathapuram", subArea: "Trichy Road Sungam Canal Confluence", zone: "East", elevationMsl: 413, baseDrainage: 0.28, impervious: 0.89, riskMult: 1.34, underpass: true },
+
+      { id: "B44", code: "B-44", name: "Selvapuram Perur Main Canal", shortName: "Selvapuram", subArea: "Noyyal River Sluice Tributary", zone: "West", elevationMsl: 416, baseDrainage: 0.42, impervious: 0.82, riskMult: 1.18, underpass: true },
+      { id: "B12", code: "B-12", name: "Ukkadam Periyakulam Spillway", shortName: "Ukkadam", subArea: "Big Tank Sluice / Palakkad Highway", zone: "South", elevationMsl: 410, baseDrainage: 0.22, impervious: 0.92, riskMult: 1.58, underpass: true },
+      { id: "B77", code: "B-77", name: "Sungam Lake Inundation Zone", shortName: "Sungam Lake", subArea: "Valankulam Lake Overflow Neck", zone: "South", elevationMsl: 411, baseDrainage: 0.24, impervious: 0.90, riskMult: 1.48, underpass: true },
+      { id: "B42", code: "B-42", name: "Singanallur Bus Stand Culvert", shortName: "Singanallur", subArea: "Singanallur Lake Catchment & Bus Depot", zone: "East", elevationMsl: 412, baseDrainage: 0.20, impervious: 0.93, riskMult: 1.52, underpass: true },
+      { id: "B81", code: "B-81", name: "Ondipudur Railway Underpass", shortName: "Ondipudur", subArea: "Trichy Road Railway Bridge", zone: "East", elevationMsl: 414, baseDrainage: 0.30, impervious: 0.85, riskMult: 1.28, underpass: true },
+
+      { id: "B09", code: "B-09", name: "Kovaipudur Highland Plains", shortName: "Kovaipudur", subArea: "Western Ghats Slopes & Well-Drained", zone: "West", elevationMsl: 452, baseDrainage: 0.82, impervious: 0.50, riskMult: 0.52, underpass: false },
+      { id: "B26", code: "B-26", name: "Kuniyamuthur Palakkad Road", shortName: "Kuniyamuthur", subArea: "Noyyal River Bridge Floodway", zone: "South", elevationMsl: 415, baseDrainage: 0.38, impervious: 0.84, riskMult: 1.22, underpass: true },
+      { id: "B65", code: "B-65", name: "Kurichi Kulam Overflow Basin", shortName: "Kurichi Basin", subArea: "Kurichi Lake Outfall / SIDCO Basin", zone: "South", elevationMsl: 412, baseDrainage: 0.26, impervious: 0.88, riskMult: 1.42, underpass: true },
+      { id: "B88", code: "B-88", name: "Sundarapuram Lowland Ward", shortName: "Sundarapuram", subArea: "Pollachi Highway Lowland Basin", zone: "South", elevationMsl: 413, baseDrainage: 0.30, impervious: 0.87, riskMult: 1.34, underpass: true },
+      { id: "B38", code: "B-38", name: "Podanur Junction Yard", shortName: "Podanur Yard", subArea: "Southern Railway Carriage Depressions", zone: "South", elevationMsl: 415, baseDrainage: 0.34, impervious: 0.82, riskMult: 1.24, underpass: true }
+    ];
+
+    let selectedWardId = "B84";
+    let activeCityName = "Coimbatore";
+    let cityAvgElevation = 418;
+    let activeWards = [...COIMBATORE_WARDS];
+    let calculatedWards = [];
+
+    const PRESETS = {
+      coimbatore_monsoon: { location: "Coimbatore City Basin (Lanka Corner & Ukkadam)", rainfall: 105, temp: 26, humidity: 91, pressure: 994, soil: 88, drainage: 3.5, elevation: 412, urban: 88, wind: 28 },
+      flash_monsoon: { location: "Coastal Urban Estuary Delta", rainfall: 110, temp: 29, humidity: 92, pressure: 992, soil: 90, drainage: 3.0, elevation: 8, urban: 92, wind: 35 },
+      moderate_suburb: { location: "North Valley Residential Basin", rainfall: 55, temp: 24, humidity: 78, pressure: 1005, soil: 65, drainage: 6.0, elevation: 45, urban: 60, wind: 18 },
+      dry_stable: { location: "Highland Metro Tech Corridor", rainfall: 8, temp: 21, humidity: 45, pressure: 1018, soil: 30, drainage: 8.5, elevation: 120, urban: 50, wind: 12 }
+    };
+
+    function selectQuickCity(query) {
+      document.getElementById('input-location').value = query;
+      discoverCityHotspots(query);
+    }
+
+    async function discoverCityHotspots(query) {
+      if (!query || query.trim().length < 2) return;
+      const statusBox = document.getElementById('discovery-status-box');
+      const btn = document.getElementById('btn-discover');
+      statusBox.classList.remove('hidden');
+      statusBox.className = "p-2.5 rounded-lg bg-cyan-950/40 border border-cyan-500/40 text-cyan-200 text-xs font-mono";
+      statusBox.textContent = `1/4: Geocoding "${query}" via OpenStreetMap Nominatim...`;
+      btn.disabled = true;
+
+      try {
+        // 1. Geocode
+        const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=in&limit=1&q=${encodeURIComponent(query)}`;
+        const geoRes = await fetch(nomUrl, { headers: { 'Accept': 'application/json' } });
+        const geoData = await geoRes.json();
+        if (!geoData || geoData.length === 0) throw new Error(`Could not locate "${query}" in India.`);
+        
+        const lat = parseFloat(geoData[0].lat);
+        const lon = parseFloat(geoData[0].lon);
+        const cityName = (geoData[0].display_name.split(',')[0] || query).trim();
+        activeCityName = cityName;
+
+        statusBox.textContent = `2/4: Fetching live atmospheric weather & elevation for ${cityName}...`;
+
+        // 2. Open-Meteo Weather with Asia/Kolkata timezone & elevation
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,surface_pressure,precipitation,cloud_cover,wind_speed_10m&daily=precipitation_sum&timezone=Asia/Kolkata`;
+        const elevationUrl = `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`;
+
+        let cur = {};
+        let baseElevation = 50;
+
+        try {
+          const [wRes, eRes] = await Promise.allSettled([fetch(weatherUrl), fetch(elevationUrl)]);
+          if (wRes.status === 'fulfilled' && wRes.value.ok) {
+            const wData = await wRes.value.json();
+            cur = wData.current || {};
+            if (typeof wData.elevation === 'number') baseElevation = Math.round(wData.elevation);
+          }
+          if (eRes.status === 'fulfilled' && eRes.value.ok) {
+            const eData = await eRes.value.json();
+            if (Array.isArray(eData.elevation) && typeof eData.elevation[0] === 'number') {
+              baseElevation = Math.round(eData.elevation[0]);
+            }
+          }
+        } catch (e) {
+          console.warn("Weather fetch issue:", e);
+        }
+
+        cityAvgElevation = baseElevation;
+        const isCoastal = baseElevation < 15;
+
+        // Update Sliders
+        const precip = cur.precipitation !== undefined && cur.precipitation > 5 ? Math.round(cur.precipitation) : (isCoastal ? 115 : 85);
+        document.getElementById('input-rainfall').value = precip;
+        document.getElementById('val-rainfall').textContent = precip + ' mm';
+
+        if (cur.temperature_2m !== undefined) {
+          document.getElementById('input-temp').value = Math.round(cur.temperature_2m);
+          document.getElementById('val-temp').textContent = Math.round(cur.temperature_2m) + ' °C';
+        }
+        if (cur.relative_humidity_2m !== undefined) {
+          document.getElementById('input-humidity').value = Math.round(cur.relative_humidity_2m);
+          document.getElementById('val-humidity').textContent = Math.round(cur.relative_humidity_2m) + ' %';
+        }
+        if (cur.surface_pressure !== undefined) {
+          document.getElementById('input-pressure').value = Math.round(cur.surface_pressure);
+          document.getElementById('val-pressure').textContent = Math.round(cur.surface_pressure) + ' hPa';
+        }
+
+        // 3. Overpass API Query for Real Urban Landmarks & Waterways
+        statusBox.textContent = `3/4: Scanning Overpass API for real stations, subways, rivers, canals & hospitals in ${cityName}...`;
+        const overpassQuery = `[out:json][timeout:15];(node["railway"~"station|subway"](around:8000,${lat},${lon});node["amenity"~"bus_station|hospital"](around:8000,${lat},${lon});way["waterway"~"river|canal|drain"](around:8000,${lat},${lon});way["natural"="water"](around:8000,${lat},${lon});way["highway"~"primary|secondary"](around:5000,${lat},${lon}););out center 25;`;
+        
+        let opData = null;
+        try {
+          const opRes = await fetch(`https://overpass-api.de/api/interpreter`, {
+            method: 'POST',
+            body: `data=${encodeURIComponent(overpassQuery)}`,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'HydroCastAI/1.0' }
+          });
+          if (opRes.ok) opData = await opRes.json();
+        } catch (e) {
+          try {
+            const opRes2 = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`);
+            if (opRes2.ok) opData = await opRes2.json();
+          } catch (e2) {
+            console.warn("Overpass fetch non-fatal:", e2);
+          }
+        }
+
+        statusBox.textContent = `4/4: Calculating relative depression sumps, coastal tidal surge & populating 25-zone matrix...`;
+
+        // 1. Collect water coordinates for proximity distance calculation
+        const waterCoords = [];
+        if (opData && opData.elements) {
+          for (const el of opData.elements) {
+            const t = el.tags || {};
+            const eLat = el.lat || (el.center && el.center.lat);
+            const eLon = el.lon || (el.center && el.center.lon);
+            if (eLat && eLon && (t.waterway || t.natural === 'water' || t.water)) {
+              waterCoords.push({ lat: eLat, lon: eLon });
+            }
+          }
+        }
+
+        // Helper: distance in meters
+        function getDistMeters(lat1, lon1, lat2, lon2) {
+          const R = 6371000;
+          const dLat = (lat2 - lat1) * (Math.PI / 180);
+          const dLon = (lon2 - lon1) * (Math.PI / 180);
+          const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+          return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+        }
+
+        // Extract Candidates
+        const names = [];
+        if (opData && opData.elements) {
+          for (const el of opData.elements) {
+            const t = el.tags || {};
+            let rawName = t.name || t['name:en'] || t['name:ta'] || t['name:hi'];
+
+            if (!rawName || rawName.trim().length === 0) {
+              if (t.waterway === 'river') rawName = `${cityName} River Drain`;
+              else if (t.waterway === 'canal') rawName = `${cityName} Navigation Canal`;
+              else if (t.waterway === 'drain') rawName = `${cityName} Storm Drainage Canal`;
+              else if (t.natural === 'water' || t.water) rawName = `${cityName} Coastal Lake & Lowland`;
+              else if (t.railway === 'station') rawName = `${cityName} Junction Station`;
+              else if (t.railway === 'subway') rawName = `${cityName} Railway Subway Sump`;
+              else if (t.amenity === 'bus_station') rawName = `${cityName} Central Bus Stand`;
+              else if (t.amenity === 'hospital') rawName = `${cityName} Medical Center Emergency Route`;
+              else if (t.highway === 'primary') rawName = `${cityName} Main Arterial Highway`;
+              else if (t.highway === 'secondary') rawName = `${cityName} Link Road Lowland`;
+              else rawName = `${cityName} Basin Sump`;
+            }
+
+            if (!names.some(n => n.name.toLowerCase() === rawName.toLowerCase())) {
+              const eLat = el.lat || (el.center && el.center.lat) || lat;
+              const eLon = el.lon || (el.center && el.center.lon) || lon;
+
+              let category = 'locality';
+              let underpass = false;
+              let distToWater = 800;
+
+              if (waterCoords.length > 0) {
+                let minD = Infinity;
+                for (const wc of waterCoords) {
+                  const d = getDistMeters(eLat, eLon, wc.lat, wc.lon);
+                  if (d < minD) minD = d;
+                }
+                distToWater = minD;
+              }
+
+              if (t.railway === 'station' || t.railway === 'subway') { category = 'railway'; underpass = true; }
+              else if (t.waterway || t.natural === 'water' || t.water) { category = 'lake'; underpass = true; distToWater = 0; }
+              else if (t.amenity === 'bus_station') { category = 'bus_station'; underpass = true; }
+              else if (t.amenity === 'hospital') { category = 'hospital'; underpass = true; }
+              else if (t.highway === 'primary' || t.highway === 'secondary') { category = 'highway'; underpass = distToWater < 300; }
+
+              names.push({ name: rawName, category, underpass, lat: eLat, lon: eLon, distToWater });
+            }
+          }
+        }
+
+        // Build 25 zones
+        const synthesizedZones = [];
+        const ringDirections = [
+          { zone: 'North', dLat: 0.022, dLon: 0.002, code: 'N1', label: 'North Gateway' },
+          { zone: 'North', dLat: 0.025, dLon: 0.015, code: 'N2', label: 'North-East Sector' },
+          { zone: 'North', dLat: 0.018, dLon: -0.012, code: 'N3', label: 'North-West Transit' },
+          { zone: 'North', dLat: 0.012, dLon: 0.024, code: 'N4', label: 'Industrial North' },
+          { zone: 'East', dLat: 0.008, dLon: 0.028, code: 'E1', label: 'Eastern Expressway' },
+          { zone: 'East', dLat: 0.002, dLon: 0.032, code: 'E2', label: 'East Aerodrome Ring' },
+          { zone: 'East', dLat: -0.006, dLon: 0.026, code: 'E3', label: 'Suburban Canal Confluence' },
+          { zone: 'East', dLat: -0.012, dLon: 0.035, code: 'E4', label: 'Eastern Outer Ring' },
+          { zone: 'Central', dLat: 0.005, dLon: -0.004, code: 'C1', label: 'Central Commerce Hub' },
+          { zone: 'Central', dLat: 0.000, dLon: 0.000, code: 'C2', label: 'Main Railway Junction & Subway' },
+          { zone: 'Central', dLat: -0.004, dLon: 0.006, code: 'C3', label: 'Hospital Emergency Corridor' },
+          { zone: 'Central', dLat: -0.008, dLon: -0.005, code: 'C4', label: 'Old Town Big Bazaar' },
+          { zone: 'Central', dLat: 0.008, dLon: 0.008, code: 'C5', label: 'District Collectorate Basin' },
+          { zone: 'Central', dLat: -0.002, dLon: -0.010, code: 'C6', label: 'Civil Lines Depression' },
+          { zone: 'West', dLat: 0.012, dLon: -0.022, code: 'W1', label: 'West Bypass Underpass' },
+          { zone: 'West', dLat: 0.004, dLon: -0.026, code: 'W2', label: 'River Confluence Embankment' },
+          { zone: 'West', dLat: -0.005, dLon: -0.029, code: 'W3', label: 'West Ridge Sump' },
+          { zone: 'West', dLat: 0.018, dLon: -0.020, code: 'W4', label: 'Highland Foothills' },
+          { zone: 'South', dLat: -0.016, dLon: -0.004, code: 'S1', label: 'South Lake Sluice Spillway' },
+          { zone: 'South', dLat: -0.020, dLon: 0.008, code: 'S2', label: 'National Highway Culvert' },
+          { zone: 'South', dLat: -0.024, dLon: -0.012, code: 'S3', label: 'River Floodway Neck' },
+          { zone: 'South', dLat: -0.022, dLon: 0.018, code: 'S4', label: 'Railway Carriage Yard' },
+          { zone: 'South', dLat: -0.028, dLon: 0.002, code: 'S5', label: 'Industrial Sump Basin' },
+          { zone: 'South', dLat: -0.015, dLon: 0.025, code: 'S6', label: 'Southern Bus Terminal' },
+          { zone: 'South', dLat: -0.030, dLon: -0.018, code: 'S7', label: 'Lowland Outfall' }
+        ];
+
+        for (let i = 0; i < 25; i++) {
+          const cfg = ringDirections[i];
+          const cand = names[i];
+          let placeName = cand ? cand.name : `${cityName} ${cfg.label}`;
+          let underpass = cand ? cand.underpass : (cfg.code === 'C2' || cfg.code === 'S1' || cfg.code === 'W1');
+          let subArea = cand ? `${cand.category.toUpperCase()} · ${cfg.zone} Basin` : `${cfg.zone} Sector Arterial Corridor`;
+          
+          let elevOffset = (i % 5 === 0 ? -6 : (i % 3 === 0 ? 8 : -2));
+          if (underpass) elevOffset -= 5;
+          let elevationMsl = Math.max(1, baseElevation + elevOffset);
+          let riskMult = underpass ? 1.55 : (elevOffset < 0 ? 1.25 : 0.85);
+
+          synthesizedZones.push({
+            id: `Z${i+1}`,
+            code: `B-${String(i+11).padStart(2, '0')}`,
+            name: placeName,
+            shortName: placeName.length > 20 ? placeName.substring(0, 18) + '...' : placeName,
+            subArea: subArea,
+            zone: cfg.zone,
+            elevationMsl: elevationMsl,
+            baseDrainage: underpass ? 0.22 : 0.55,
+            impervious: 0.85,
+            riskMult: riskMult,
+            underpass: underpass
+          });
+        }
+
+        activeWards = synthesizedZones;
+        selectedWardId = activeWards.find(w => w.underpass)?.id || activeWards[0].id;
+
+        // Update UI Badges & Titles
+        document.getElementById('badge-city-name').textContent = cityName;
+        document.getElementById('header-city-name').textContent = cityName;
+        document.getElementById('badge-microzones').textContent = `25 Real Micro-Zones in ${cityName}`;
+        document.getElementById('desc-city-info').textContent = `Live OpenStreetMap & Open-Meteo telemetry for ${cityName} (Base MSL ${baseElevation}m, Temp ${Math.round(cur.temperature_2m || 27)}°C). Click any block to view depth and time-to-flood.`;
+
+        // Success banner
+        statusBox.className = "p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs font-mono";
+        statusBox.textContent = `✓ Discovered 25 real micro-zones in ${cityName}! Live weather updated.`;
+        setTimeout(() => { statusBox.classList.add('hidden'); }, 4000);
+
+        // Run ML nowcast
+        runNowcasting();
+
+      } catch (err) {
+        console.error("Discovery error:", err);
+        statusBox.className = "p-2.5 rounded-lg bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs";
+        statusBox.textContent = `Discovery note: ${err.message || 'Error querying OpenStreetMap.'} Reverting to base grid.`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function loadScenario(presetKey) {
+      const p = PRESETS[presetKey];
+      if (!p) return;
+      document.getElementById('input-location').value = p.location;
+      document.getElementById('input-rainfall').value = p.rainfall;
+      document.getElementById('val-rainfall').textContent = p.rainfall + ' mm';
+      document.getElementById('input-temp').value = p.temp;
+      document.getElementById('val-temp').textContent = p.temp + ' °C';
+      document.getElementById('input-humidity').value = p.humidity;
+      document.getElementById('val-humidity').textContent = p.humidity + ' %';
+      document.getElementById('input-pressure').value = p.pressure;
+      document.getElementById('val-pressure').textContent = p.pressure + ' hPa';
+      document.getElementById('input-soil').value = p.soil;
+      document.getElementById('val-soil').textContent = p.soil + ' %';
+      document.getElementById('input-drainage').value = p.drainage;
+      document.getElementById('val-drainage').textContent = p.drainage.toFixed(1) + ' / 10';
+      runNowcasting();
+    }
+
+    function calculateCoimbatoreGrid(rainfall, soil, drainage, urban) {
+      const rainWeight = Math.pow(Math.max(0.1, rainfall / 65.0), 0.88);
+      const soilWeight = 0.5 + (soil / 100.0) * 0.75;
+
+      calculatedWards = activeWards.map(w => {
+        const drainagePenalty = (10.0 - drainage) * 3.2 * (1.1 - w.baseDrainage);
+        const urbanPenalty = (urban / 100.0) * w.impervious * 22.0;
+        const elevationRelief = Math.max(0, (cityAvgElevation + 15 - w.elevationMsl) * 0.75);
+
+        let rawScore = (rainWeight * 42.0 * w.riskMult) + (soilWeight * 18.0) + drainagePenalty + urbanPenalty + elevationRelief;
+        let riskScore = Math.min(99, Math.max(12, Math.round(rawScore * 10) / 10));
+
+        let riskLevel = "Safe";
+        if (riskScore >= 75) riskLevel = "High";
+        else if (riskScore >= 40) riskLevel = "Moderate";
+
+        const lowlandFactor = w.underpass ? 1.45 : 0.85;
+        const waterDepthCm = riskScore > 35
+          ? Math.round(Math.max(0, (riskScore - 30) * 1.35 * Math.pow(rainfall / 60.0, 0.65) * lowlandFactor))
+          : 0;
+
+        let timeToFloodMin = 0;
+        if (riskScore >= 75) timeToFloodMin = Math.round(Math.max(8, (100 - riskScore) * 1.4 + (drainage * 2.8)));
+        else if (riskScore >= 40) timeToFloodMin = Math.round(Math.max(30, (100 - riskScore) * 1.8 + (drainage * 4.0)));
+        else timeToFloodMin = 180;
+
+        return { ...w, riskScore, riskLevel, waterDepthCm, timeToFloodMin };
+      });
+
+      renderCoimbatoreMap();
+      renderPriorityLocations();
+    }
+
+    function renderCoimbatoreMap() {
+      const container = document.getElementById('coimbatore-grid-container');
+      container.innerHTML = '';
+
+      calculatedWards.forEach(w => {
+        let bg = "bg-emerald-600/80 border-emerald-500/60 hover:bg-emerald-500 text-white";
+        let badgeBg = "bg-emerald-950/60 text-emerald-200 border-emerald-400/40";
+        if (w.riskLevel === 'High') {
+          bg = "bg-rose-600/90 border-rose-500 hover:bg-rose-500 text-white shadow-md shadow-rose-950/40";
+          badgeBg = "bg-rose-950/70 text-rose-100 border-rose-300/50";
+        } else if (w.riskLevel === 'Moderate') {
+          bg = "bg-amber-600/90 border-amber-500 hover:bg-amber-500 text-white shadow-md shadow-amber-950/30";
+          badgeBg = "bg-amber-950/70 text-amber-100 border-amber-300/50";
+        }
+
+        const isSelected = selectedWardId === w.id;
+        const ring = isSelected ? 'ring-4 ring-cyan-400 ring-offset-2 ring-offset-[#070b14] scale-[1.04] z-20' : 'hover:scale-[1.02]';
+
+        container.innerHTML += `
+          <button type="button" onclick="selectWard('${w.id}')"
+            title="${w.name} (${w.code})&#10;Risk: ${w.riskScore}/100 [${w.riskLevel}]&#10;Depth: ${w.waterDepthCm}cm&#10;Flood ETA: ${w.timeToFloodMin}m"
+            class="rounded-xl p-2 sm:p-2.5 text-left border transition-all duration-150 cursor-pointer flex flex-col justify-between min-h-[82px] sm:min-h-[92px] ${bg} ${ring}">
+            <div class="flex items-center justify-between w-full">
+              <span class="font-mono text-[10px] sm:text-xs font-bold">${w.code}</span>
+              <span class="px-1.5 py-0.2 text-[10px] sm:text-[11px] font-mono-tabular font-extrabold rounded border ${badgeBg}">${w.riskScore.toFixed(0)}</span>
+            </div>
+            <div class="my-1">
+              <span class="block text-[11px] sm:text-xs font-bold leading-tight line-clamp-2">${w.shortName}</span>
+            </div>
+            <div class="flex items-center justify-between text-[10px] font-mono-tabular pt-0.5 border-t border-white/20">
+              <span>${w.waterDepthCm > 0 ? w.waterDepthCm + 'cm' : 'Safe'}</span>
+              <span>${w.timeToFloodMin < 60 ? w.timeToFloodMin + 'm' : '>1h'}</span>
+            </div>
+          </button>
+        `;
+      });
+
+      renderWardHUD();
+    }
+
+    function selectWard(id) {
+      selectedWardId = id;
+      renderCoimbatoreMap();
+      renderPriorityLocations();
+    }
+
+    function renderWardHUD() {
+      const ward = calculatedWards.find(w => w.id === selectedWardId) || calculatedWards[0];
+      if (!ward) return;
+
+      let badgeColor = "bg-emerald-500/20 text-emerald-300 border-emerald-500/40";
+      let scoreColor = "text-emerald-400";
+      if (ward.riskLevel === 'High') {
+        badgeColor = "bg-rose-500/20 text-rose-300 border-rose-500/40";
+        scoreColor = "text-rose-400";
+      } else if (ward.riskLevel === 'Moderate') {
+        badgeColor = "bg-amber-500/20 text-amber-300 border-amber-500/40";
+        scoreColor = "text-amber-400";
+      }
+
+      document.getElementById('ward-detail-hud').innerHTML = `
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded text-[11px] font-bold font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">${ward.code}</span>
+              <h4 class="text-sm font-bold text-white">${ward.name}</h4>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase border ${badgeColor}">${ward.riskLevel} Risk</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">Zone: <strong class="text-slate-300">${ward.zone} Coimbatore</strong> · Landmark: ${ward.subArea}</p>
+          </div>
+          <div class="text-right">
+            <span class="text-[10px] text-slate-400 font-mono">SECTOR RISK SCORE</span>
+            <span class="text-xl font-bold font-mono-tabular ${scoreColor} block">${ward.riskScore.toFixed(1)} / 100</span>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div class="p-2.5 rounded-lg bg-black/40 border border-slate-800">
+            <span class="text-[10px] font-semibold uppercase text-slate-400 block">Water Depth</span>
+            <span class="text-lg font-bold font-mono-tabular ${ward.waterDepthCm > 50 ? 'text-rose-400' : 'text-cyan-400'}">${ward.waterDepthCm} cm</span>
+          </div>
+          <div class="p-2.5 rounded-lg bg-black/40 border border-slate-800">
+            <span class="text-[10px] font-semibold uppercase text-slate-400 block">Time to Flood</span>
+            <span class="text-lg font-bold font-mono-tabular ${ward.timeToFloodMin < 30 ? 'text-rose-400' : 'text-amber-400'}">${ward.timeToFloodMin} min</span>
+          </div>
+          <div class="p-2.5 rounded-lg bg-black/40 border border-slate-800">
+            <span class="text-[10px] font-semibold uppercase text-slate-400 block">Elevation MSL</span>
+            <span class="text-lg font-bold font-mono-tabular text-slate-200">${ward.elevationMsl} m</span>
+          </div>
+          <div class="p-2.5 rounded-lg bg-black/40 border border-slate-800">
+            <span class="text-[10px] font-semibold uppercase text-slate-400 block">Drain Rating</span>
+            <span class="text-lg font-bold font-mono-tabular text-slate-200">${(ward.baseDrainage * 10).toFixed(1)} / 10</span>
+          </div>
+        </div>
+        <div class="pt-1 flex items-start gap-2 text-xs">
+          <span class="text-slate-400 font-semibold shrink-0">Command Action:</span>
+          <span class="text-cyan-300 font-medium">
+            ${ward.riskLevel === 'High'
+              ? `Deploy emergency 150HP suction pump to ${ward.shortName}. Barricade vehicle entry ramps immediately and divert traffic via arterial corridors.`
+              : ward.riskLevel === 'Moderate'
+              ? `Clear stormwater culvert screens at ${ward.shortName} and stage backup pumps on mobile trailers.`
+              : `Maintain routine telemetry monitoring. Drainage channels in ${ward.shortName} operating within design tolerance.`}
+          </span>
+        </div>
+      `;
+    }
+
+    function renderPriorityLocations() {
+      const container = document.getElementById('priority-locations-container');
+      container.innerHTML = '';
+
+      const top10 = [...calculatedWards].sort((a, b) => b.riskScore - a.riskScore).slice(0, 10);
+
+      top10.forEach((loc, idx) => {
+        const isSelected = selectedWardId === loc.id;
+        const rankBadge = idx < 5 ? "bg-rose-500 text-white font-bold" : "bg-amber-500 text-white font-bold";
+        const border = isSelected ? "border-cyan-400 bg-cyan-950/30 ring-1 ring-cyan-400" : "border-slate-800 hover:border-slate-700 bg-slate-900/60";
+
+        container.innerHTML += `
+          <div onclick="selectWard('${loc.id}')"
+            class="p-3 rounded-xl border ${border} transition-all duration-150 cursor-pointer flex items-center justify-between gap-3 group">
+            <div class="flex items-start gap-2.5 min-w-0">
+              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[10px] shrink-0 font-mono ${rankBadge}">${idx + 1}</span>
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <h5 class="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors truncate">${loc.name}</h5>
+                  <span class="text-[10px] font-mono text-slate-400 shrink-0 font-semibold">${loc.code}</span>
+                </div>
+                <p class="text-[11px] text-slate-400 truncate mt-0.5">${loc.subArea}</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 shrink-0">
+              <div class="text-right">
+                <div class="text-[11px] font-mono-tabular font-bold text-cyan-300">${loc.waterDepthCm} cm</div>
+                <div class="text-[10px] font-mono-tabular text-slate-400 mt-0.5">${loc.timeToFloodMin} min</div>
+              </div>
+              <div class="text-right min-w-[50px]">
+                <span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold font-mono-tabular ${loc.riskLevel === 'High' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'}">
+                  ${loc.riskScore.toFixed(0)}
+                </span>
+                <span class="block text-[9px] uppercase font-semibold text-slate-400 mt-0.5">${loc.riskLevel}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function openEmergencyModal() {
+      document.getElementById('emergency-modal').classList.remove('hidden');
+      document.getElementById('emergency-modal').classList.add('flex');
+    }
+
+    function closeEmergencyModal() {
+      document.getElementById('emergency-modal').classList.add('hidden');
+      document.getElementById('emergency-modal').classList.remove('flex');
+    }
+
+    function reBroadcast() {
+      const label = document.getElementById('broadcast-time-label');
+      label.textContent = "Dispatched at " + new Date().toLocaleTimeString() + " IST via TN-DISASTER-NET-VHF #402";
+      alert("Emergency broadcast re-transmitted to all 4 authorities.");
+    }
+
+    let rainfallChartInstance = null;
+    let riskChartInstance = null;
+    let weatherChartInstance = null;
+
+    function runNowcasting() {
+      const rainfall = parseFloat(document.getElementById('input-rainfall').value);
+      const soil = parseFloat(document.getElementById('input-soil').value);
+      const drainage = parseFloat(document.getElementById('input-drainage').value);
+      const temp = parseFloat(document.getElementById('input-temp').value);
+      const hum = parseFloat(document.getElementById('input-humidity').value);
+      const urban = 88;
+
+      calculateCoimbatoreGrid(rainfall, soil, drainage, urban);
+
+      // Simple 7-day forecast
+      const storm_wave = [1.0, 1.25, 0.90, 0.55, 0.35, 0.20, 0.15];
+      const today = new Date();
+      const forecast = [];
+      let cur_soil = soil;
+
+      for (let day = 1; day <= 7; day++) {
+        const mult = storm_wave[day - 1];
+        const d = new Date(today);
+        d.setDate(today.getDate() + day - 1);
+        const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+        const dailyRain = Math.max(0, Math.round((rainfall * mult + Math.sin(day * 1.2) * 5) * 10) / 10);
+        cur_soil = Math.min(99, Math.max(15, Math.round((cur_soil + (dailyRain * 0.35) - ((10.0 - drainage) * 1.5)) * 10) / 10));
+
+        const dailyTemp = Math.round((temp + (dailyRain < 20 ? 1.5 : -1.2) + Math.cos(day) * 0.8) * 10) / 10;
+        const dailyHum = Math.min(99, Math.max(35, Math.round(hum * (0.85 + mult * 0.25))));
+
+        const rawRisk = (dailyRain / 140.0) * 45.0 + Math.pow(cur_soil / 100.0, 1.8) * 20.0 + ((10.0 - drainage) / 9.0) * 22.0 + 8.0;
+        const riskScore = Math.min(100, Math.max(0, Math.round(rawRisk * 10) / 10));
+        let riskLevel = riskScore >= 75 ? "Critical" : riskScore >= 55 ? "High" : riskScore >= 35 ? "Moderate" : "Safe";
+
+        forecast.push({ day, date: dateStr, rainfall: dailyRain, temperature: dailyTemp, humidity: dailyHum, soilMoisture: cur_soil, floodRiskScore: riskScore, riskLevel, keyRiskFactor: "Precipitation & Drainage Backlog" });
+      }
+
+      renderTimelineAndTable(forecast);
+      renderCharts(forecast);
+    }
+
+    function renderTimelineAndTable(forecast) {
+      const timeline = document.getElementById('timeline-container');
+      timeline.innerHTML = '';
+      forecast.forEach(f => {
+        let border = f.riskLevel === 'Critical' ? 'border-rose-500/50 bg-rose-500/5' : f.riskLevel === 'High' ? 'border-amber-500/50 bg-amber-500/5' : 'border-slate-800';
+        let bar = f.riskLevel === 'Critical' ? 'bg-rose-500' : f.riskLevel === 'High' ? 'bg-amber-500' : 'bg-emerald-500';
+        timeline.innerHTML += `
+          <div class="rounded-xl border ${border} p-3 flex flex-col justify-between">
+            <div class="flex justify-between text-xs">
+              <span class="font-bold text-white">Day ${f.day}</span>
+              <span class="text-[10px] text-slate-400">${f.date.split(',')[0]}</span>
+            </div>
+            <div class="my-2 text-center">
+              <span class="text-xl font-bold font-mono-tabular text-white">${f.floodRiskScore.toFixed(0)}</span>
+              <span class="text-[10px] text-slate-400 block uppercase">${f.riskLevel}</span>
+            </div>
+            <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+              <div class="${bar} h-full" style="width: ${f.floodRiskScore}%"></div>
+            </div>
+          </div>
+        `;
+      });
+
+      const table = document.getElementById('forecast-table-body');
+      table.innerHTML = '';
+      forecast.forEach(f => {
+        table.innerHTML += `
+          <tr class="hover:bg-slate-800/40">
+            <td class="py-2.5 px-3 font-semibold text-white">Day ${f.day}</td>
+            <td class="py-2.5 px-3 text-slate-300">${f.date}</td>
+            <td class="py-2.5 px-3 text-cyan-400 font-semibold">${f.rainfall} mm</td>
+            <td class="py-2.5 px-3 text-slate-200">${f.temperature} °C</td>
+            <td class="py-2.5 px-3 text-slate-200">${f.humidity} %</td>
+            <td class="py-2.5 px-3 text-slate-300">${f.soilMoisture} %</td>
+            <td class="py-2.5 px-3 font-bold ${f.riskLevel === 'Critical' ? 'text-rose-400' : 'text-amber-400'}">${f.floodRiskScore}</td>
+            <td class="py-2.5 px-3">${f.riskLevel}</td>
+            <td class="py-2.5 px-3 text-slate-400">${f.keyRiskFactor}</td>
+          </tr>
+        `;
+      });
+    }
+
+    function renderCharts(forecast) {
+      const labels = forecast.map(f => `Day ${f.day}`);
+      const rainData = forecast.map(f => f.rainfall);
+      const riskData = forecast.map(f => f.floodRiskScore);
+      const tempData = forecast.map(f => f.temperature);
+      const humData = forecast.map(f => f.humidity);
+
+      if (rainfallChartInstance) rainfallChartInstance.destroy();
+      rainfallChartInstance = new Chart(document.getElementById('chart-rainfall').getContext('2d'), {
+        type: 'line',
+        data: { labels, datasets: [{ label: 'Rainfall (mm)', data: rainData, borderColor: '#06b6d4', backgroundColor: 'rgba(6, 182, 212, 0.15)', fill: true, tension: 0.3 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' } } } }
+      });
+
+      if (riskChartInstance) riskChartInstance.destroy();
+      riskChartInstance = new Chart(document.getElementById('chart-risk').getContext('2d'), {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Risk (0-100)', data: riskData, backgroundColor: riskData.map(v => v > 75 ? '#f43f5e' : v > 40 ? '#f59e0b' : '#10b981'), borderRadius: 6 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#94a3b8' } }, y: { max: 100, ticks: { color: '#94a3b8' } } } }
+      });
+
+      if (weatherChartInstance) weatherChartInstance.destroy();
+      weatherChartInstance = new Chart(document.getElementById('chart-weather').getContext('2d'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Temp (°C)', data: tempData, borderColor: '#f97316', yAxisID: 'y1', tension: 0.3 },
+            { label: 'Humidity (%)', data: humData, borderColor: '#3b82f6', borderDash: [4, 4], yAxisID: 'y2', tension: 0.3 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y1: { position: 'left', ticks: { color: '#f97316' } },
+            y2: { position: 'right', max: 100, ticks: { color: '#3b82f6' }, grid: { drawOnChartArea: false } }
+          }
+        }
+      });
+    }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      runNowcasting();
+    }
+
+    function exportToPDF() {
+      const element = document.getElementById('dashboard-content');
+      const opt = {
+        margin: [8, 8, 8, 8],
+        filename: `HydroCast_Coimbatore_Report_${Date.now()}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 1.5, useCORS: true, backgroundColor: '#070b14' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+      };
+      html2pdf().set(opt).from(element).save();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      runNowcasting();
+    });
+  </script>
+</body>
+</html>

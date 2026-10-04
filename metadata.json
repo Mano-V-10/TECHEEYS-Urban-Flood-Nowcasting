@@ -1,0 +1,6 @@
+{
+  "name": "Urban Flood Nowcasting System",
+  "description": "Real-time AI-powered urban flood prediction and 7-day hydrological risk nowcasting platform with machine learning forecasting and risk visualization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
